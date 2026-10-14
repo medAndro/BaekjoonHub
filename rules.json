@@ -10,5 +10,17 @@
           ]
         },
         "condition": { "initiatorDomains":["acmicpc.net"], "resourceTypes": ["xmlhttprequest"] }
+    },
+    {
+        "id": 2,
+        "priority": 2,
+        "action": {
+            "type": "redirect",
+            "redirect": { "regexSubstitution": "https://web.archive.org/web/20260427000000/https://www.acmicpc.net/problem/\\1" }
+        },
+        "condition": {
+            "regexFilter": "^https?://(?:www\\.)?acmicpc\\.net/problem/([1-9][0-9]*)/?(?:[?#].*)?$",
+            "resourceTypes": ["main_frame"]
+        }
     }
 ]

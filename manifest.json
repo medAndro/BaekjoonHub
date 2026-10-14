@@ -33,6 +33,10 @@
     "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
+    "*://acmicpc.net/*",
+    "*://www.acmicpc.net/*",
+    "https://web.archive.org/*",
+    "https://testcase.ac/*",
     "https://www.acmicpc.net/",
     "https://school.programmers.co.kr/",
     "https://github.com/",
@@ -57,6 +61,11 @@
     }
   ],
   "content_scripts": [
+    {
+      "matches": ["https://web.archive.org/web/*", "https://testcase.ac/*"],
+      "js": ["scripts/archive/links.js", "scripts/archive/navigation.js"],
+      "run_at": "document_idle"
+    },
     {
       "matches": [
         "https://github.com/*"
