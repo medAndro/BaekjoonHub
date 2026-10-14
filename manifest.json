@@ -62,8 +62,29 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://web.archive.org/web/*", "https://testcase.ac/*"],
+      "matches": ["https://testcase.ac/*"],
+      "js": ["scripts/testcase/protocol.js", "scripts/testcase/bridge.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://testcase.ac/*"],
+      "js": [
+        "library/sha1.min.js", "scripts/util.js", "scripts/Github.js",
+        "scripts/utils/pathNormalize.js", "scripts/utils/languageMigration.js",
+        "scripts/storage.js", "scripts/enable.js", "scripts/archive/links.js",
+        "scripts/testcase/protocol.js", "scripts/testcase/upload.js", "scripts/testcase/content.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://web.archive.org/web/*"],
       "js": ["scripts/archive/links.js", "scripts/archive/navigation.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://testcase.ac/*"],
+      "js": ["scripts/archive/navigation.js"],
       "run_at": "document_idle"
     },
     {

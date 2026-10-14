@@ -6,6 +6,8 @@
   <br>
 </h1>
 
+이 포크는 BOJ 문제 링크를 Wayback Machine으로 연결하고, testcase.ac에서 실행한 테스트를 100% 통과하면 기존 연결된 GitHub 저장소에 코드를 자동 업로드합니다. 아카이브에서 testcase.ac로 이동하는 링크도 제공합니다. 설치·검증 방법과 제약은 [연동 안내](docs/testcase-integration.md)를 참고하세요.
+
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"/></a>
   <a href="https://chrome.google.com/webstore/detail/ccammcjdkpgjmcpijpahlehmapgmphmk"><img src="https://img.shields.io/chrome-web-store/v/ccammcjdkpgjmcpijpahlehmapgmphmk.svg" alt="chrome-webstore"/></a>
