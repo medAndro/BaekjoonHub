@@ -52,10 +52,10 @@ test('actual manifest bundles in separate MAIN/ISOLATED worlds upload final pass
     querySelector: () => ({ textContent: 'A+B' }) };
   const isolated = vm.createContext({ document, location, URL, TextEncoder, btoa,
     TextDecoder, Request, Response, setTimeout: () => 0, clearTimeout() {}, AbortSignal,
-    console: { log() {}, error: (...args) => errors.push(args) },
+    console: { log() {}, warn() {}, info() {}, error: (...args) => errors.push(args) },
     MutationObserver: class { observe() {} },
     addEventListener: (_, fn) => { messageListener = fn; },
-    chrome: { runtime: { getManifest: () => manifest, sendMessage: async () => ({ level: 1 }) },
+    chrome: { runtime: { getManifest: () => manifest, sendMessage: async () => ({ ok: true, data: { level: 1 } }) },
       storage: { local: {
         get: (key, cb) => cb({ [key]: store[key] === undefined ? undefined : structuredClone(store[key]) }),
         set: (data, cb) => { Object.assign(store, structuredClone(data)); cb?.(); },
@@ -68,6 +68,7 @@ test('actual manifest bundles in separate MAIN/ISOLATED worlds upload final pass
       if (url.includes('/contents/')) return new Response('{}', { status: 404 });
       if (method === 'GET' && url.endsWith('/test-owner/test-repo')) result = { default_branch: 'main' };
       else if (method === 'GET' && url.endsWith('/git/ref/heads/main')) result = { ref: 'refs/heads/main', object: { sha: 'parent' } };
+      else if (method === 'GET' && url.endsWith('/git/trees/parent?recursive=1')) result = { tree: [], truncated: false };
       else if (method === 'POST' && url.endsWith('/git/blobs')) { blobs.push(body); result = { sha: `blob-${blobs.length}` }; }
       else if (method === 'POST' && url.endsWith('/git/trees')) result = { sha: 'tree-1' };
       else if (method === 'POST' && url.endsWith('/git/commits')) result = { sha: 'commit-1' };

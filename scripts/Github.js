@@ -158,11 +158,14 @@ class GitHub {
   async commitTreeItems(branch, treeItems, message) {
     for (let attempt = 1; ; attempt += 1) {
       const { refSHA, ref } = await this.getReference(branch);
-      const treeData = await this.createTree(refSHA, treeItems);
+      // A planner re-reads files at this exact parent on every fast-forward retry.
+      const plannedItems = typeof treeItems === 'function' ? await treeItems(refSHA) : treeItems;
+      if (typeof treeItems === 'function' && plannedItems.length === 0) return { unchanged: true, treeItems: [] };
+      const treeData = await this.createTree(refSHA, plannedItems);
       const commitSHA = await this.createCommit(message, treeData.sha, refSHA);
       try {
         await this.updateHead(ref, commitSHA, false);
-        return { commitSHA, parentSHA: refSHA };
+        return typeof treeItems === 'function' ? { commitSHA, parentSHA: refSHA, treeItems: plannedItems } : { commitSHA, parentSHA: refSHA };
       } catch (error) {
         if (!GitHub.isNotFastForwardError(error) || attempt >= GITHUB_COMMIT_MAX_ATTEMPTS) throw error;
         log('GitHub commitTreeItems: 그 사이 브랜치가 움직여 최신 ref 위에 다시 커밋합니다.', { attempt, parent: refSHA });
@@ -321,8 +324,9 @@ async function getTreeWithTruncation(hook, token, ref = 'HEAD') {
  * @param {string} path - the file path
  * @return {Promise} - the promise for the file object or null if not found
  */
-async function getFile(hook, token, path) {
-  return githubRequest(`https://api.github.com/repos/${hook}/contents/${path}`, {
+async function getFile(hook, token, path, ref) {
+  const query = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+  return githubRequest(`https://api.github.com/repos/${hook}/contents/${path}${query}`, {
     method: 'GET',
     headers: {
       Authorization: `token ${token}`,

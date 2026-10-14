@@ -19,6 +19,25 @@ const ROOT = path.join(__dirname, '..');
 const HOOK = 'tester/algorithm';
 const isNullish = (value) => value === null || value === undefined;
 
+test('moves delete stale cache paths before recording rank-normalized destinations', () => {
+  const sandbox = loadStorageJs();
+  const submission = {};
+  const old = '백준/Unrated/1000. A+B/A+B.cc';
+  const relocated = '백준/testcase.ac/Gold/1000. A+B/A+B.cc';
+  sandbox.updateObjectDatafromPath(submission, `${HOOK}/${old}`, 'old');
+  sandbox.recordTreeItemsInStats(submission, HOOK, [
+    { path: relocated, type: 'blob', sha: 'new' }, { path: old, type: 'blob', sha: null },
+  ]);
+  assert.equal(sandbox.getObjectDatafromPath(submission, `${HOOK}/${old}`), null);
+  assert.equal(sandbox.getObjectDatafromPath(submission, `${HOOK}/${relocated}`), 'new');
+  // Moving within testcase.ac changes only the rank, so old/new share a cache key.
+  const unrated = relocated.replace('/Gold/', '/Unrated/');
+  sandbox.recordTreeItemsInStats(submission, HOOK, [
+    { path: relocated, type: 'blob', sha: 'latest' }, { path: unrated, type: 'blob', sha: null },
+  ]);
+  assert.equal(sandbox.getObjectDatafromPath(submission, `${HOOK}/${relocated}`), 'latest');
+});
+
 /**
  * @param {Map<string, any>} [store] - 주면 chrome.storage.local 을 이 Map 으로 흉내 낸다(값은 JSON 으로 복제해
  *   실제 storage 처럼 읽을 때마다 새 객체가 나온다). 없으면 get/set 이 아무 일도 하지 않는다.

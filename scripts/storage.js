@@ -226,6 +226,24 @@ function updateObjectDatafromPath(obj, path, data) {
  * @param {Array<{path: string, type?: string, sha?: string, content?: string}>} treeItems - createTree 에 넘긴 항목
  */
 function recordTreeItemsInStats(submission, hook, treeItems) {
+  // Remove deleted paths first: rank-normalized old/new paths may share a key.
+  for (const item of treeItems.filter(item => item.type === 'blob' && item.sha === null)) {
+    const keys = normalizePath(`${hook}/${item.path}`).split('/').filter(Boolean);
+    let current = submission;
+    const parents = [];
+    for (const key of keys.slice(0, -1)) {
+      if (!current || typeof current[key] !== 'object') { current = null; break; }
+      parents.push([current, key]);
+      current = current[key];
+    }
+    if (current) {
+      delete current[keys[keys.length - 1]];
+      for (const [parent, key] of parents.reverse()) {
+        if (Object.keys(parent[key]).length) break;
+        delete parent[key];
+      }
+    }
+  }
   treeItems.forEach((item) => {
     if (!isNull(item.type) && item.type !== 'blob') return;
     let sha = item.sha;

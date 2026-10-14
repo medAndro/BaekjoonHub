@@ -82,17 +82,26 @@ test('bridge ignores custom invocation and unrelated hosts and cleans up network
 });
 
 function uploadContext() {
-  const state = { commits: [], records: [], remote: null, enabled: true, token: 'token', fail: false, templates: [] };
+  const state = { commits: [], records: [], remote: null, enabled: true, token: 'token', fail: false, templates: [], tree: [], truncated: false };
   const context = vm.createContext({ BJHTestcase: protocol, BJHArchive: archive,
     checkEnable: async () => state.enabled, getHook: async () => 'user/repo', getToken: async () => state.token,
-    getFile: async () => state.remote, calculateBlobSHA: code => 'sha:' + code,
+    getFile: async (_, __, filePath) => filePath.endsWith('/README.md') ? state.attribution : state.remote, calculateBlobSHA: code => 'sha:' + code,
+    atob,
+    setTimeout: () => 0, clearTimeout() {},
     convertSingleCharToDoubleChar: text => text, getDateString: () => 'date',
     buildDirectory: async (platform, vars) => { state.templates.push({ platform, vars }); return vars._defaultDir; },
     recordUploadInStats: async (...args) => state.records.push(args),
     GitHub: class {
       async getDefaultBranchOnRepo() { return 'main'; }
+      async getTreeWithTruncation() { return { tree: state.tree, truncated: state.truncated }; }
       async createBlob(code, path) { return { code, path, sha: 'sha:' + code }; }
-      async commitTreeItems(branch, items, message) { if (state.fail) throw new Error('expired token'); state.commits.push({ branch, items, message }); }
+      async commitTreeItems(branch, planner, message) {
+        if (state.fail) throw new Error('expired token');
+        const items = typeof planner === 'function' ? await planner('parent') : planner;
+        if (!items.length) return { unchanged: true, treeItems: [] };
+        state.commits.push({ branch, items, message });
+        return { treeItems: items };
+      }
     },
   });
   vm.runInContext(source('upload.js'), context);
@@ -109,9 +118,10 @@ test('upload uses submitted source, BOJ templates, and one commit for code + att
   assert.match(commit.items[1].code, /100\/100/);
   assert.match(commit.items[1].code, /BOJ 공식 채점 결과가 아니며/);
   assert.match(commit.items[1].code, /web.archive.org/);
-  assert.equal(state.templates[0].platform, 'baekjoon');
+  assert.equal(state.templates[0].platform, 'testcase');
   assert.equal(state.records.length, 1);
   state.remote = { sha: 'sha:' + submission.code };
+  state.tree = [{ type: 'blob', path: state.commits[0].items[0].path, sha: state.remote.sha }];
   await context.uploadTestcase(submission, good);
   assert.equal(state.commits.length, 1);
 });
@@ -124,6 +134,74 @@ test('solved.ac tier preserves BOJ directory conventions with Unrated fallback',
   assert.equal(context.testcaseTier(31), 'Master');
   assert.equal(context.testcaseTier(null), 'Unrated');
   assert.equal(context.testcaseTier(32), 'Unrated');
+});
+
+function migrationContext() {
+  const loaded = uploadContext();
+  loaded.context.chrome = { runtime: { sendMessage: async () => ({ ok: true, data: { level: 12 } }) } };
+  return loaded;
+}
+const treeFile = (path, sha) => ({ path, sha, mode: '100644', type: 'blob' });
+
+test('tier success migrates all Unrated solution files atomically even for an already uploaded source', async () => {
+  const { state, context } = migrationContext();
+  const old = (await context.makeTestcaseData(submission, good)).directory;
+  const target = (await context.makeTestcaseData(submission, good, { level: 12 })).directory;
+  assert.match(target, /^백준\/testcase\.ac\/Gold\//);
+  state.remote = { sha: 'sha:' + submission.code };
+  state.tree = [treeFile(`${target}/A+B.cc`, state.remote.sha),
+    treeFile(`${old}/A+B.cc`, 'old-code'), treeFile(`${old}/README.md`, 'old-readme'),
+    treeFile(`${old}/other.java`, 'java-blob'), treeFile(`${old}/samples/input1.txt`, 'sample-blob')];
+  const result = await context.uploadTestcase(submission, good);
+  assert.match(result, /경로로 이동/);
+  assert.equal(state.commits.length, 1);
+  const items = state.commits[0].items;
+  assert.equal(items.filter(item => item.sha === null).length, 4);
+  assert.equal(items.find(item => item.path === `${target}/other.java`).sha, 'java-blob');
+  assert.equal(items.find(item => item.path === `${target}/samples/input1.txt`).sha, 'sample-blob');
+  assert.equal(state.records.length, 1);
+});
+
+test('legacy testcase folders move only with attribution read at the pinned commit', async () => {
+  const { state, context } = migrationContext();
+  const legacy = '백준/Unrated/1000. A+B';
+  state.tree = [treeFile(`${legacy}/A+B.cc`, 'old-code'), treeFile(`${legacy}/README.md`, 'old-readme')];
+  state.attribution = { encoding: 'base64', content: btoa('https://testcase.ac/problems/boj/1000') };
+  let ref;
+  context.getFile = async (_, __, filePath, pinned) => { if (filePath.endsWith('/README.md')) { ref = pinned; return state.attribution; } return null; };
+  await context.uploadTestcase(submission, good);
+  assert.equal(ref, 'parent');
+  assert.equal(state.commits[0].items.filter(item => item.sha === null).length, 2);
+  const official = migrationContext();
+  official.state.tree = state.tree;
+  official.state.attribution = { encoding: 'base64', content: btoa('BOJ official accepted submission') };
+  await official.context.uploadTestcase(submission, good);
+  assert.equal(official.state.commits[0].items.some(item => item.sha === null), false);
+});
+
+test('migration conflicts preserve originals and incomplete trees prevent any commit', async () => {
+  const { state, context } = migrationContext();
+  const old = (await context.makeTestcaseData(submission, good)).directory;
+  const target = (await context.makeTestcaseData(submission, good, { level: 12 })).directory;
+  state.tree = [treeFile(`${old}/other.java`, 'old'), treeFile(`${target}/other.java`, 'different')];
+  assert.match(await context.uploadTestcase(submission, good), /원본 유지/);
+  assert.equal(state.commits[0].items.some(item => item.sha === null), false);
+  state.truncated = true;
+  await assert.rejects(context.uploadTestcase(submission, good), /불완전/);
+  assert.equal(state.commits.length, 1);
+});
+
+test('content console reports detailed tier failure and identifies a real Unrated success', async () => {
+  const { context } = uploadContext();
+  const warnings = [], successes = [];
+  context.console = { warn: (...args) => warnings.push(args), info: (...args) => successes.push(args) };
+  context.chrome = { runtime: { sendMessage: async () => ({ ok: false, error: { reason: 'cloudflare_challenge', status: 403 } }) } };
+  assert.equal(await context.testcaseMetadata('1197'), null);
+  assert.equal(warnings[0][1].status, 403);
+  assert.equal(warnings[0][1].reason, 'cloudflare_challenge');
+  context.chrome.runtime.sendMessage = async () => ({ ok: true, data: { level: 0 } });
+  assert.equal((await context.testcaseMetadata('1197')).level, 0);
+  assert.equal(successes[0][1].tier, 'Unrated');
 });
 
 test('disabled, invalid, unauthenticated submissions never commit; errors propagate and retry works', async () => {

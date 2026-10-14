@@ -16,6 +16,20 @@ const ROOT = path.join(__dirname, '..');
 const HOOK = 'tester/algorithm';
 const API = `https://api.github.com/repos/${HOOK}`;
 
+test('move planners are rebuilt against the latest parent after a fast-forward conflict', async () => {
+  const server = makeServer({ beforePatch: n => n === 1 });
+  const gh = loadGithub(server.route);
+  const parents = [];
+  const result = await new gh.GitHub(HOOK, 'token').commitTreeItems('main', async parent => {
+    parents.push(parent);
+    return [{ path: 'moved.txt', type: 'blob', mode: '100644', sha: `snapshot-${parent}` }];
+  }, 'move');
+  assert.deepEqual(parents, ['c0', 'other1']);
+  assert.equal(result.treeItems[0].sha, 'snapshot-other1');
+  const trees = gh.requests.filter(request => request.url.endsWith('/git/trees'));
+  assert.equal(trees[1].body.tree[0].sha, 'snapshot-other1');
+});
+
 function jsonResponse(status, body) {
   return {
     status,
