@@ -1,7 +1,9 @@
 (() => {
   const runs = new Map();
   let queue = Promise.resolve();
-  function status(message, retry) {
+  let dismissTimer;
+  function status(message, retry, autoDismiss = false) {
+    clearTimeout(dismissTimer);
     let panel = document.getElementById('bjh-testcase-status');
     if (!panel) {
       panel = document.createElement('div');
@@ -17,12 +19,13 @@
       button.addEventListener('click', () => { button.disabled = true; retry(); });
       panel.appendChild(button);
     }
+    if (autoDismiss) dismissTimer = setTimeout(() => panel.remove(), 5000);
   }
   function enqueue(submission, result) {
     queue = queue.then(async () => {
       try {
         status(`${submission.problemId}번 GitHub 업로드 중...`);
-        status(await uploadTestcase(submission, result));
+        status(await uploadTestcase(submission, result), null, true);
       }
       catch (error) {
         console.error('[BaekjoonHub] testcase.ac upload failed', error);

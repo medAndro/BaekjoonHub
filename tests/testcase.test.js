@@ -147,16 +147,21 @@ test('disabled, invalid, unauthenticated submissions never commit; errors propag
 test('content observer ignores history and foreign messages, respects OFF, and retries a failed upload', async () => {
   let listener, enabled = true, fail = true;
   const uploaded = [], elements = new Map();
+  const timers = new Map();
+  let timerId = 0;
   function element() {
     return { style: {}, children: [], setAttribute() {},
       appendChild(child) { this.children.push(child); if (child.id) elements.set(child.id, child); },
       addEventListener(name, fn) { this[name] = fn; },
+      remove() { elements.delete(this.id); },
       set textContent(text) { this.text = text; this.children = []; },
     };
   }
   const window = { addEventListener: (_, fn) => { listener = fn; } };
   const context = vm.createContext({ window, location: { origin: 'https://testcase.ac' },
     console: { error() {} }, BJHTestcase: protocol, checkEnable: async () => enabled,
+    setTimeout: (fn, delay) => { timers.set(++timerId, { fn, delay }); return timerId; },
+    clearTimeout: id => timers.delete(id),
     document: { getElementById: id => elements.get(id), createElement: element, body: element() },
     uploadTestcase: async (s) => { if (fail) throw new Error('temporary error'); uploaded.push(s); return 'done'; },
   });
@@ -178,6 +183,7 @@ test('content observer ignores history and foreign messages, respects OFF, and r
   const panel = elements.get('bjh-testcase-status');
   assert.match(panel.text, /temporary error/);
   assert.equal(panel.children[0].text, '업로드 재시도');
+  assert.equal(timers.size, 0, 'errors with retry remain visible');
   fail = false;
   panel.children[0].click();
   await tick();
@@ -186,4 +192,9 @@ test('content observer ignores history and foreign messages, respects OFF, and r
   await send('completed', 'first');
   await tick();
   assert.equal(uploaded.length, 1);
+  assert.equal(timers.size, 1);
+  const timer = [...timers.values()][0];
+  assert.equal(timer.delay, 5000);
+  timer.fn();
+  assert.equal(elements.has('bjh-testcase-status'), false);
 });

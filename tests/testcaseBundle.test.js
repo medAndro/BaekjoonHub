@@ -51,7 +51,7 @@ test('actual manifest bundles in separate MAIN/ISOLATED worlds upload final pass
     getElementById: id => panels.get(id), querySelectorAll: () => [],
     querySelector: () => ({ textContent: 'A+B' }) };
   const isolated = vm.createContext({ document, location, URL, TextEncoder, btoa,
-    TextDecoder, Request, Response, setTimeout, clearTimeout, AbortSignal,
+    TextDecoder, Request, Response, setTimeout: () => 0, clearTimeout() {}, AbortSignal,
     console: { log() {}, error: (...args) => errors.push(args) },
     MutationObserver: class { observe() {} },
     addEventListener: (_, fn) => { messageListener = fn; },
