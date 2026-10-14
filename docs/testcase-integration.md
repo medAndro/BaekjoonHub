@@ -15,6 +15,12 @@
 
 ## 수동 검증
 
+업데이트 후에는 `chrome://extensions`에서 확장을 새로고침하고, 이미 열려 있던 testcase.ac 탭도 새로고침해야 한다. 확장 버전 `1.4.23`가 표시되는지 확인한다. 이전 탭에는 구버전의 이벤트 리스너가 남을 수 있다.
+
+개발 시 `protocol.js` 또는 `bridge.js`를 수정하면 `npm run build:testcase`로 MAIN 전용 `page-bridge.js`를 다시 생성한다. MAIN/ISOLATED에는 서로 다른 파일 URL을 등록한다. 통합 테스트는 실제 manifest의 파일을 별도 실행 환경에 로드하고 리소스 URL 중복 제거 조건에서도 최종 결과 → GitHub 코드/README 커밋 → 캐시 저장을 확인한다.
+
+`BJHTestcase is not defined` 원인: 같은 `protocol.js`를 MAIN/ISOLATED에 등록한 기존 구조에서는 Chrome의 경로 기준 주입 중복 제거에 의해 한 환경에서 누락될 수 있었다. Chromium의 `UserScriptInjector::GetJsSources`는 이미 실행된 `script_url.path()`를 건너뛴다. 이를 별도 MAIN 번들로 해결했다. 또한 testcase 번들에 없던 `getDateString` 호출은 표준 `Date.toISOString()`으로 바꿨다. 참고: https://chromium.googlesource.com/chromium/src/+/refs/tags/132.0.6834.213/extensions/renderer/user_script_injector.cc
+
 1. Chrome 확장 관리에서 개발자 모드를 켜고 이 폴더를 압축해제 확장으로 로드/새로고침한다. 기존 GitHub 인증과 저장소 연결을 완료하고 확장을 활성화한다.
 2. `https://www.acmicpc.net/problem/1000`을 열면 Wayback으로 이동한다. HTTP 및 www 없는 원본 URL도 확인한다.
 3. 아카이브의 `testcase.ac에서 실행` 링크와 testcase.ac의 `원본 문제` 링크로 왕복한다. SPA에서 다른 문제로 이동해도 링크가 갱신되는지 확인한다.

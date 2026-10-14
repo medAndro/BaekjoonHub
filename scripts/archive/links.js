@@ -1,5 +1,6 @@
 /* Shared URL parsing: only BOJ problem documents are redirected. */
-const BJHArchive = (() => {
+(() => {
+const links = (() => {
   const snapshot = '20260427000000';
   function problemId(value) {
     try {
@@ -23,4 +24,6 @@ const BJHArchive = (() => {
   }
   return { problemId, archiveUrl, testcaseUrl };
 })();
-if (typeof module !== 'undefined' && module.exports) module.exports = BJHArchive;
+if (typeof module !== 'undefined' && module.exports) module.exports = links;
+else globalThis.BJHArchive = links;
+})();

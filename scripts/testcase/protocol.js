@@ -1,4 +1,5 @@
-const BJHTestcase = (() => {
+(() => {
+const protocol = (() => {
   const languages = {
     cpp23: ['C++23', 'cc'], cpp20: ['C++20', 'cc'], cpp17: ['C++17', 'cc'], cpp14: ['C++14', 'cc'],
     c11: ['C11', 'c'], c99: ['C99', 'c'], python3: ['Python 3', 'py'], pypy3: ['PyPy 3', 'py'],
@@ -54,4 +55,6 @@ const BJHTestcase = (() => {
   }
   return { languages, accepted, validSubmission, readResult };
 })();
-if (typeof module !== 'undefined' && module.exports) module.exports = BJHTestcase;
+if (typeof module !== 'undefined' && module.exports) module.exports = protocol;
+else globalThis.BJHTestcase = protocol;
+})();

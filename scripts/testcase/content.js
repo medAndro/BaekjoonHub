@@ -20,8 +20,10 @@
   }
   function enqueue(submission, result) {
     queue = queue.then(async () => {
-      status(`${submission.problemId}번 GitHub 업로드 중...`);
-      try { status(await uploadTestcase(submission, result)); }
+      try {
+        status(`${submission.problemId}번 GitHub 업로드 중...`);
+        status(await uploadTestcase(submission, result));
+      }
       catch (error) {
         console.error('[BaekjoonHub] testcase.ac upload failed', error);
         status(error.message || '업로드 실패', () => enqueue(submission, result));
@@ -29,18 +31,24 @@
     });
   }
   window.addEventListener('message', async event => {
-    if (event.source !== window || event.origin !== location.origin) return;
-    const data = event.data;
-    if (!data || data.source !== 'bjh-testcase-v1' || typeof data.runId !== 'string') return;
-    if (data.kind === 'submitted') {
-      // Capture enabled state before the result arrives, including for quick responses.
-      if (!runs.has(data.runId)) runs.set(data.runId, checkEnable());
-      return;
+    try {
+      if (event.source !== window || event.origin !== location.origin) return;
+      const data = event.data;
+      if (!data || data.source !== 'bjh-testcase-v1' || typeof data.runId !== 'string') return;
+      if (data.kind === 'submitted') {
+        // Capture enabled state before the result arrives, including for quick responses.
+        if (!runs.has(data.runId)) runs.set(data.runId, checkEnable());
+        return;
+      }
+      const enabled = runs.get(data.runId);
+      if (!enabled) return;
+      runs.delete(data.runId);
+      if (data.kind !== 'completed' || !await enabled || !await checkEnable()) return;
+      if (!globalThis.BJHTestcase) throw new Error('판정 모듈이 로드되지 않았습니다. 확장과 testcase.ac 페이지를 새로고침해주세요.');
+      if (globalThis.BJHTestcase.validSubmission(data.submission) && globalThis.BJHTestcase.accepted(data.result)) enqueue(data.submission, data.result);
+    } catch (error) {
+      console.error('[BaekjoonHub] testcase.ac result handling failed', error);
+      status(error.message || '실행 결과 처리에 실패했습니다.');
     }
-    const enabled = runs.get(data.runId);
-    if (!enabled) return;
-    runs.delete(data.runId);
-    if (data.kind !== 'completed' || !await enabled || !await checkEnable()) return;
-    if (BJHTestcase.validSubmission(data.submission) && BJHTestcase.accepted(data.result)) enqueue(data.submission, data.result);
   });
 })();

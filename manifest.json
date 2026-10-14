@@ -3,7 +3,7 @@
   "name": "백준허브(BaekjoonHub)",
   "description": "Automatically integrate your BOJ submissions to GitHub",
   "homepage_url": "https://github.com/BaekjoonHub/BaekjoonHub",
-  "version": "1.4.21",
+  "version": "1.4.23",
   "author": "flaxinger",
   "action": {
     "default_icon": "assets/thumbnail.png",
@@ -63,7 +63,7 @@
   "content_scripts": [
     {
       "matches": ["https://testcase.ac/*"],
-      "js": ["scripts/testcase/protocol.js", "scripts/testcase/bridge.js"],
+      "js": ["scripts/testcase/page-bridge.js"],
       "world": "MAIN",
       "run_at": "document_start"
     },
@@ -75,6 +75,7 @@
         "scripts/storage.js", "scripts/enable.js", "scripts/archive/links.js",
         "scripts/testcase/protocol.js", "scripts/testcase/upload.js", "scripts/testcase/content.js"
       ],
+      "world": "ISOLATED",
       "run_at": "document_start"
     },
     {
